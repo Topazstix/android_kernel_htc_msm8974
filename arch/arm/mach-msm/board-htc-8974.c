@@ -601,6 +601,26 @@ static struct reserve_info htc_8974_reserve_info __initdata = {
 
 void __init htc_8974_reserve(void)
 {
+#ifdef CONFIG_KEXEC_HARDBOOT
+	// Reserve space for hardboot page - just after ram_console,
+	// at the start of second memory bank
+	int ret;
+	phys_addr_t start;
+	struct membank* bank;
+
+	if (meminfo.nr_banks < 2) {
+		pr_err("%s: not enough membank\n", __func__);
+		return;
+	}
+
+	bank = &meminfo.bank[1];
+	start = bank->start + SZ_1M + HTC_8974_PERSISTENT_RAM_SIZE;
+	ret = memblock_remove(start, SZ_1M);
+	if(!ret)
+		pr_info("Hardboot page reserved at 0x%X\n", start);
+	else
+		pr_err("Failed to reserve space for hardboot page at 0x%X!\n", start);
+#endif
 	reserve_info = &htc_8974_reserve_info;
 	of_scan_flat_dt(dt_scan_for_memory_reserve, htc_8974_reserve_table);
 	msm_reserve();
@@ -791,31 +811,13 @@ void __init htc_8974_init_early(void)
 	
 	persistent_ram_early_init(&htc_8974_persistent_ram);
 
-#ifdef CONFIG_KEXEC_HARDBOOT
-	// Reserve space for hardboot page - just after ram_console,
-	// at the start of second memory bank
-	int ret;
-	phys_addr_t start;
-	struct membank* bank;
-
-	if (meminfo.nr_banks < 2) {
-		pr_err("%s: not enough membank\n", __func__);
-		return;
-	}
-
-	bank = &meminfo.bank[1];
-	start = bank->start + SZ_1M + HTC_8974_PERSISTENT_RAM_SIZE;
-	ret = memblock_remove(start, SZ_1M);
-	if(!ret)
-		pr_info("Hardboot page reserved at 0x%X\n", start);
-	else
-		pr_err("Failed to reserve space for hardboot page at 0x%X!\n", start);
-#endif
-
 #ifdef CONFIG_HTC_DEBUG_FOOTPRINT
 	mnemosyne_early_init((unsigned int)HTC_DEBUG_FOOTPRINT_PHYS, (unsigned int)HTC_DEBUG_FOOTPRINT_BASE);
 #endif
+
 }
+
+
 
 void __init htc_8974_init(void)
 {
